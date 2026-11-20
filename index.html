@@ -1,6 +1,10 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Lighting Lab</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<!-- Lighting Lab v2 · static page (GitHub Pages) · talks to Jarvis's server at /api/lighting (see LIGHTING-LAB-FOR-JARVIS-v2.md) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -72,6 +76,20 @@ nav.tabs a:focus-visible,button:focus-visible,input:focus-visible,select:focus-v
 .pair figure{margin:0}.pair img,.pair canvas{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px;display:block;background:#000}
 .pair figcaption{font:500 11px var(--mono);color:var(--dim);margin-top:4px;letter-spacing:.06em;text-transform:uppercase}
 .status{font:400 13px var(--mono);color:var(--sodium);min-height:20px;margin:8px 0}
+.headr{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%;background:#6b6370;display:inline-block}
+.dot.on{background:#7fd38f;box-shadow:0 0 8px #7fd38f}.dot.warn{background:var(--sodium)}
+.sheet.narrow{grid-template-columns:1fr;width:min(560px,100%)}
+.sheet.narrow h2{font-size:clamp(30px,5vw,44px)}
+.pend{color:var(--sodium)}
+.jobs{display:grid;gap:10px;margin-top:14px}
+.job{border:1px solid var(--rule);border-radius:12px;padding:12px;background:var(--stage);display:grid;gap:8px}
+.job .top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.job .st{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:5px;border:1px solid currentColor}
+.st-awaiting_go{color:var(--sodium)}.st-queued,.st-rendering{color:var(--cool)}.st-done{color:#7fd38f}.st-failed,.st-cancelled{color:#d9766b}
+.job .res{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.job video{width:100%;border-radius:8px;background:#000;display:block}
+.job figcaption{font:500 11px var(--mono);color:var(--dim);margin-top:3px}
 .empty{color:var(--dim);padding:40px 0;text-align:center}
 
 /* Slate (detail sheet) */
@@ -117,6 +135,8 @@ label.chip:has(input:checked){border-color:var(--sodium);color:var(--sodium)}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 </style>
 
+</head>
+<body>
 <div class="wrap">
   <header class="top">
     <div>
@@ -128,6 +148,7 @@ label.chip:has(input:checked){border-color:var(--sodium);color:var(--sodium)}
       <a href="#add" id="tab-add">Add a look</a>
       <a href="#relight" id="tab-relight">Relight a video</a>
     </nav>
+    <button class="btn" id="sync-btn" aria-haspopup="dialog"><i class="dot" id="sync-dot"></i><span id="sync-lbl">Jarvis: not connected</span></button>
   </header>
 
   <section id="view-looks">
@@ -140,10 +161,11 @@ label.chip:has(input:checked){border-color:var(--sodium);color:var(--sodium)}
           <button id="subj-photo" aria-pressed="false">My photo</button>
         </div>
         <label class="btn" for="photo-file">Upload photo</label>
+        <button class="btn" id="photo-clear" hidden>Forget photo</button>
         <input id="photo-file" type="file" accept="image/*" hidden>
       </div>
     </div>
-    <p class="note" id="photo-note" hidden>Photo mode is a rough mood preview: colour, darkness and direction only. The real relight comes from Jarvis.</p>
+    <p class="note" id="photo-note" hidden>Photo mode is a rough mood preview: colour, darkness and direction only. Your photo stays on this device. The real relight comes from Jarvis.</p>
     <div class="grid" id="grid"></div>
     <p class="empty" id="empty" hidden>No saved looks yet. Tap ★ on any look to save it.</p>
   </section>
@@ -163,10 +185,10 @@ label.chip:has(input:checked){border-color:var(--sodium);color:var(--sodium)}
             <textarea id="ref-note" placeholder="e.g. the green light from the window and how dark the room is"></textarea>
           </label>
           <div class="row">
-            <button class="btn primary" id="read-light">Read the light</button>
+            <button class="btn primary" id="read-light" hidden>Read the light</button>
           </div>
           <p class="status" id="ref-status" aria-live="polite"></p>
-          <p class="note" id="ai-off" hidden>Reading the light needs Claude, which isn't available in this view. You can still write the clause yourself below and borrow a preview from the closest preset.</p>
+          <p class="note" id="ai-off">Connect Jarvis (top right) and he reads the light from your screenshot for you. Until then, write the clause yourself below and borrow a preview from the closest preset.</p>
         </div>
       </div>
       <div>
@@ -237,11 +259,19 @@ label.chip:has(input:checked){border-color:var(--sodium);color:var(--sodium)}
       <div>
         <div class="step">
           <h2>4 · Send to Jarvis</h2>
-          <p>Copy this and paste it into Telegram.</p>
+          <p id="send-hint">Copy this and paste it into Telegram. Connect Jarvis (top right) to send it straight from here and watch the results come back.</p>
           <div class="row" style="margin-bottom:10px">
-            <button class="btn primary" id="copy-order">Copy order</button>
+            <button class="btn primary" id="send-job" hidden>Send to Jarvis</button>
+            <button class="btn" id="copy-order">Copy order</button>
           </div>
+          <p class="status" id="job-status" aria-live="polite"></p>
           <div class="order" id="order" tabindex="0" aria-label="Order for Jarvis"></div>
+        </div>
+        <div class="step" id="jobs-step" hidden>
+          <h2>5 · Jobs</h2>
+          <p>Every paid render waits for your go, here or in Telegram.</p>
+          <div class="row"><button class="btn" id="jobs-refresh">Refresh</button></div>
+          <div class="jobs" id="jobs"></div>
         </div>
       </div>
     </div>
@@ -272,6 +302,38 @@ label.chip:has(input:checked){border-color:var(--sodium);color:var(--sodium)}
         <button class="btn" id="s-fav">★ Save look</button>
         <button class="btn" id="s-relight">Relight a video with this</button>
         <button class="btn" id="s-delete" hidden>Delete my look</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="scrim" id="sync-scrim" hidden>
+  <div class="sheet narrow" role="dialog" aria-modal="true" aria-labelledby="sync-title">
+    <div>
+      <button class="btn close" id="sync-close" aria-label="Close" style="float:right">Close ✕</button>
+      <div class="kicker">Sync</div>
+      <h2 id="sync-title">Connect Jarvis</h2>
+      <p class="use">Your stars, picks and own looks always save on this device. Connect Jarvis to keep them on his server too, so they follow you to every device and he can use your looks straight away.</p>
+      <label class="f" for="srv-url">Jarvis server address
+        <input type="text" id="srv-url" placeholder="https://jarvis.example.com" inputmode="url" autocomplete="off" spellcheck="false">
+      </label>
+      <label class="f" for="srv-key">Access key (from Jarvis, stays on this device)
+        <input type="password" id="srv-key" autocomplete="off">
+      </label>
+      <div class="row">
+        <button class="btn primary" id="srv-connect">Connect</button>
+        <button class="btn" id="srv-sync" hidden>Sync now</button>
+        <button class="btn" id="srv-forget" hidden>Disconnect</button>
+      </div>
+      <p class="status" id="srv-status" aria-live="polite"></p>
+      <div class="step" style="margin-top:18px">
+        <h2 style="font-size:24px">Backup</h2>
+        <p>A file with your stars, picks and own looks. Import it on another device, or keep it as a backup.</p>
+        <div class="row">
+          <button class="btn" id="exp-json">Export JSON</button>
+          <label class="btn" for="imp-file">Import JSON</label>
+          <input id="imp-file" type="file" accept="application/json,.json" hidden>
+        </div>
+        <p class="note" id="bk-note"></p>
       </div>
     </div>
   </div>
@@ -565,14 +627,14 @@ LIGHTING: Relight my original scene as ${light} The frame shows the same people,
 
 FINISH: Photorealistic, natural skin texture and the original lens perspective. Preserve the original speech and audio. No added music or text.`;
 let CUSTOM=[];const ALL=()=>PRESETS.concat(CUSTOM);
-const codeLabel=p=>p.tag==="mine"?"#"+p.code:"#"+p.code;
+const codeLabel=p=>p.pending?"Not in Jarvis yet":"#"+p.code;
+const refSrc=p=>p.refThumb&&/^data:image\//.test(p.refThumb)?p.refThumb:(p.refUrl&&/^https:\/\//.test(p.refUrl)?p.refUrl:null);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const PAT_SAMPLE="data:image/jpeg;base64,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";
 
 /* ---------- storage ---------- */
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 let favs=new Set(store.get("ll-favs",[]));
-function saveFavs(){store.set("ll-favs",[...favs])}
+function saveFavs(){store.set("ll-favs",[...favs]);touchState()}
 
 /* ---------- maths ---------- */
 const clamp=(x,a,b)=>x<a?a:x>b?b:x;
@@ -758,7 +820,7 @@ function render(canvas,p,t,photo){
 
 /* ---------- photo handling ---------- */
 let PHOTO=null,subject="head";
-function loadPhoto(src){
+function loadPhoto(src,quiet){
   const im=new Image();
   im.onload=()=>{
     const ph={id:Date.now(),img:im,alb:{},lum:{}};
@@ -769,18 +831,22 @@ function loadPhoto(src){
       for(let q=0;q<N;q++){const r=Math.pow(d[q*4]/255,2.2),g=Math.pow(d[q*4+1]/255,2.2),b=Math.pow(d[q*4+2]/255,2.2);a[q*3]=r;a[q*3+1]=g;a[q*3+2]=b;l[q]=.2126*r+.7152*g+.0722*b}
       ph.alb[W]=a;ph.lum[W]=l;
     }
-    PHOTO=ph;setSubject("photo");
+    PHOTO=ph;document.getElementById("photo-clear").hidden=false;
+    if(!quiet){try{const c=document.createElement("canvas");c.width=300;c.height=400;const x=c.getContext("2d");const s=Math.max(300/im.width,400/im.height);x.drawImage(im,(300-im.width*s)/2,(400-im.height*s)/2,im.width*s,im.height*s);localStorage.setItem("ll-photo",c.toDataURL("image/jpeg",.85))}catch(e){}}
+    setSubject(quiet?store.get("ll-subject","head"):"photo");
   };
   im.src=src;
 }
 document.getElementById("photo-file").addEventListener("change",e=>{const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>loadPhoto(r.result);r.readAsDataURL(f)});
 function setSubject(s){
-  if(s==="photo"&&!PHOTO){loadPhoto(PAT_SAMPLE);return}
-  subject=s;document.getElementById("subj-head").setAttribute("aria-pressed",s==="head");document.getElementById("subj-photo").setAttribute("aria-pressed",s==="photo");
+  if(s==="photo"&&!PHOTO){document.getElementById("photo-file").click();return}
+  subject=s;store.set("ll-subject",s);document.getElementById("subj-head").setAttribute("aria-pressed",s==="head");document.getElementById("subj-photo").setAttribute("aria-pressed",s==="photo");
   document.getElementById("photo-note").hidden=s!=="photo";
   cards.forEach(c=>c.dirty=true);if(openP)drawSheet(0);if(!document.getElementById("view-add").hidden)drawDraft();
 }
 document.getElementById("subj-head").onclick=()=>setSubject("head");
+document.getElementById("photo-clear").onclick=()=>{try{localStorage.removeItem("ll-photo")}catch(e){}PHOTO=null;document.getElementById("photo-clear").hidden=true;setSubject("head");toast("Photo forgotten on this device")};
+try{const cached=localStorage.getItem("ll-photo");if(cached)loadPhoto(cached,true)}catch(e){}
 document.getElementById("subj-photo").onclick=()=>setSubject("photo");
 
 /* ---------- grid ---------- */
@@ -790,7 +856,7 @@ FAMILIES.forEach(([k,label])=>{const b=document.createElement("button");b.classN
 function makeCard(p,before){
   const el=document.createElement("article");el.className="card";
   const tg=p.tag?`<b class="tag t-${p.tag}">${TAGS[p.tag]}</b>`:"";
-  el.innerHTML=`<button class="open" aria-label="Open ${esc(p.name)}"><canvas width="180" height="240"></canvas><div class="meta"><span class="code">${esc(codeLabel(p))}${tg}</span><h3>${esc(p.name)}</h3><p>${esc(p.feel)}</p></div></button><button class="fav" aria-label="Save ${esc(p.name)}" aria-pressed="${favs.has(p.id)}">★</button>${p.refAsset?`<img class="ref" alt="" src="/_blob/${esc(p.refAsset)}">`:""}`;
+  el.innerHTML=`<button class="open" aria-label="Open ${esc(p.name)}"><canvas width="180" height="240"></canvas><div class="meta"><span class="code">${esc(codeLabel(p))}${tg}</span><h3>${esc(p.name)}</h3><p>${esc(p.feel)}</p></div></button><button class="fav" aria-label="Save ${esc(p.name)}" aria-pressed="${favs.has(p.id)}">★</button>${refSrc(p)?`<img class="ref" alt="" src="${esc(refSrc(p))}">`:""}`;
   const cv=el.querySelector("canvas");
   el.querySelector(".open").onclick=()=>openSheet(p);
   el.querySelector(".fav").onclick=()=>toggleFav(p.id);
@@ -820,9 +886,9 @@ function applyFilter(){
 let openP=null;const scrim=document.getElementById("scrim"),sCanvas=document.getElementById("s-canvas");
 function openSheet(p){openP=p;
   const tl={house:" · house look",care:" · use with care",off:" · off-brand",scene:" · scene-specific",new:" · 90s extra",mine:" · my look"}[p.tag]||"";
-  document.getElementById("s-code").textContent=(p.tag==="mine"?"My look #":"Preset #")+p.code+tl;
-  document.getElementById("s-ref").hidden=!p.refAsset;if(p.refAsset)document.getElementById("s-refimg").src="/_blob/"+p.refAsset;
-  document.getElementById("s-delete").hidden=!(p.tag==="mine"&&DB&&CAN_EDIT);
+  document.getElementById("s-code").textContent=p.pending?"My look · not in Jarvis yet":(p.tag==="mine"?"My look #":"Preset #")+p.code+tl;
+  const ru=refSrc(p);document.getElementById("s-ref").hidden=!ru;if(ru)document.getElementById("s-refimg").src=ru;
+  document.getElementById("s-delete").hidden=p.tag!=="mine";
   document.getElementById("s-name").textContent=p.name;document.getElementById("s-feel").textContent=p.feel;document.getElementById("s-use").textContent="Use it for: "+p.use;
   document.getElementById("s-q").textContent=p.q;document.getElementById("s-dir").textContent=p.dir;document.getElementById("s-ratio").textContent=p.ratio;document.getElementById("s-col").textContent=p.col;document.getElementById("s-mot").textContent=p.mot;
   document.getElementById("s-clause").textContent=p.light;document.getElementById("s-fav").textContent=favs.has(p.id)?"★ Saved":"★ Save look";
@@ -833,10 +899,9 @@ scrim.addEventListener("click",e=>{if(e.target===scrim)closeSheet()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&openP)closeSheet()});
 document.getElementById("s-copy").onclick=()=>copy(UNIVERSAL(openP.light),document.getElementById("s-clause"),"Full prompt copied");
 document.getElementById("s-copy-clause").onclick=()=>copy(openP.light,document.getElementById("s-clause"),"Clause copied");
-document.getElementById("s-delete").onclick=async()=>{const p=openP;if(!p||!DB)return;
+document.getElementById("s-delete").onclick=()=>{const p=openP;if(!p)return;
   const b=document.getElementById("s-delete");if(b.dataset.arm!=="1"){b.dataset.arm="1";b.textContent="Tap again to delete";setTimeout(()=>{b.dataset.arm="";b.textContent="Delete my look"},3000);return}
-  b.dataset.arm="";b.textContent="Delete my look";
-  try{await DB.collection("looks").doc(p.docId).delete();closeSheet();toast("Deleted")}catch(e){toast("Couldn't delete: "+(e.code||"error"))}};
+  b.dataset.arm="";b.textContent="Delete my look";deleteLook(p)};
 document.getElementById("s-fav").onclick=()=>toggleFav(openP.id);
 document.getElementById("s-relight").onclick=()=>{const id=openP.id;closeSheet();picked=new Set([id]);location.hash="#relight";buildPicklist();buildOrder()};
 function drawSheet(t){if(openP)render(sCanvas,openP,t,subject==="photo"?PHOTO:null)}
@@ -866,7 +931,7 @@ function buildPicklist(){
   ALL().filter(p=>p.tag!=="off"||picked.has(p.id)).filter(p=>!savedOnly||favs.has(p.id)||picked.has(p.id)).forEach(p=>{
     const l=document.createElement("label");l.className="chip";
     l.innerHTML=`<input type="checkbox" id="pk-${esc(p.id)}" ${picked.has(p.id)?"checked":""}> #${esc(p.code)} ${esc(p.name)}`;
-    l.querySelector("input").onchange=e=>{if(e.target.checked){if(picked.size>=3){e.target.checked=false;toast("Pick up to three looks");return}picked.add(p.id)}else picked.delete(p.id);store.set("ll-picked",[...picked]);buildOrder()};
+    l.querySelector("input").onchange=e=>{if(e.target.checked){if(picked.size>=3){e.target.checked=false;toast("Pick up to three looks");return}picked.add(p.id)}else picked.delete(p.id);store.set("ll-picked",[...picked]);touchState();buildOrder()};
     pickEl.appendChild(l)});
   document.getElementById("pick-count").textContent=picked.size+" of 3 picked";
 }
@@ -915,9 +980,115 @@ function route(){const r=location.hash==="#relight"?"relight":location.hash==="#
   if(r==="looks")cards.forEach(c=>c.dirty=true);if(r==="add")drawDraft()}
 window.addEventListener("hashchange",route);
 
-/* ---------- add a look ---------- */
-let DB=null,CAN_EDIT=false,SAMPLE=null,ASSETS=null,refBlob=null,draftR=null,draftN=0,reading=null;
+
+/* ---------- local records (always) ---------- */
 const $=id=>document.getElementById(id);
+let MINE=store.get("ll-mine",[]);            // looks made on this device that Jarvis hasn't accepted yet, plus a cache of his
+let SRV=store.get("ll-server",null);         // {url,key}
+let FEATS={},ONLINE=false,stateAt=store.get("ll-state-at",0),stateTimer=null;
+function touchState(){stateAt=Date.now();store.set("ll-state-at",stateAt);clearTimeout(stateTimer);if(ONLINE)stateTimer=setTimeout(pushState,1500)}
+function saveMine(){store.set("ll-mine",MINE)}
+function rebuildCustom(){
+  let n=0;CUSTOM=MINE.map(m=>({...m,tag:"mine",code:m.pending?"new":m.code,id:m.id,r:cleanR(m.r),
+    family:SHELVES.some(s=>s[0]===m.family)?m.family:"noir",use:m.use||"Your own reference.",q:m.q||"-",dir:m.dir||"-",ratio:m.ratio||"-",col:m.col||"-",mot:m.mot||"-"}));
+  renderCustomCards();
+}
+
+/* ---------- Jarvis API (his server; CORS + bearer key) ---------- */
+async function api(method,path,body,ms){
+  if(!SRV)throw{code:"not_connected"};
+  const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),ms||20000);
+  try{
+    const r=await fetch(SRV.url.replace(/\/+$/,"")+"/api/lighting"+path,{method,mode:"cors",signal:ctl.signal,
+      headers:Object.assign({"Authorization":"Bearer "+SRV.key},body?{"Content-Type":"application/json"}:{}),body:body?JSON.stringify(body):undefined});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw{code:j.error||("http_"+r.status),status:r.status};
+    return j;
+  }catch(e){if(e&&e.name==="AbortError")throw{code:"timeout"};if(e instanceof TypeError)throw{code:"unreachable"};throw e}
+  finally{clearTimeout(t)}
+}
+const WHY={unreachable:"can't reach the server (address, HTTPS or CORS)",timeout:"the server took too long",http_401:"the access key was refused",http_403:"this page's address isn't allowed on the server",not_connected:"not connected"};
+const why=e=>WHY[e&&e.code]||(e&&e.code)||"error";
+function setOnline(on,msg){
+  ONLINE=on;$("sync-dot").className="dot"+(on?" on":SRV?" warn":"");$("sync-lbl").textContent=on?"Jarvis: connected":SRV?"Jarvis: offline":"Jarvis: not connected";
+  $("srv-sync").hidden=$("srv-forget").hidden=!SRV;if(msg!=null)$("srv-status").textContent=msg;
+  $("read-light").hidden=!(on&&FEATS.read);$("ai-off").hidden=on&&FEATS.read;
+  $("send-job").hidden=!(on&&FEATS.jobs);$("jobs-step").hidden=!(on&&FEATS.jobs);
+  $("send-hint").textContent=on&&FEATS.jobs?"Send it straight to Jarvis, or copy it into Telegram.":"Copy this and paste it into Telegram. Connect Jarvis (top right) to send it straight from here and watch the results come back.";
+  const pend=MINE.filter(m=>m.pending).length;
+  $("save-note").textContent=on?"":pend?pend+" look"+(pend>1?"s":"")+" saved on this device only, not in Jarvis yet. They send when you connect.":"";
+}
+async function connect(){
+  if(!SRV){setOnline(false);return}
+  try{const h=await api("GET","/health");FEATS=h.features||{};setOnline(true,"Connected"+(h.name?" to "+h.name:"")+".");await syncAll()}
+  catch(e){FEATS={};setOnline(false,"Offline: "+why(e)+". Everything still saves on this device.")}
+}
+async function syncAll(){
+  if(!ONLINE)return;
+  // 1. library: presets.json is the source of truth for every text field
+  try{
+    const lib=await api("GET","/presets");const list=Array.isArray(lib.presets)?lib.presets:[];let changed=0;
+    const TXT=["name","family","tag","feel","use","q","dir","ratio","col","mot","light"];
+    for(const sp of list){const p=PRESETS.find(x=>x.code===String(sp.code));if(!p)continue;
+      for(const k of TXT)if(typeof sp[k]==="string"&&sp[k]&&p[k]!==sp[k]){p[k]=sp[k];changed++}}
+    if(changed){BUF.clear();cards.forEach(c=>{const p=c.p;c.el.querySelector("h3").textContent=p.name;c.el.querySelector(".meta p").textContent=p.feel;c.dirty=true});buildPicklist();buildOrder()}
+    // his "mine" looks replace our cached copies; local pending ones stay
+    const theirs=list.filter(sp=>sp.tag==="mine").map(sp=>({id:String(sp.id),code:String(sp.code),name:sp.name,feel:sp.feel||"",use:sp.use||"",family:sp.family,q:sp.q,dir:sp.dir,ratio:sp.ratio,col:sp.col,mot:sp.mot,light:sp.light||"",r:sp.r||null,refUrl:sp.ref_url||null}));
+    const keepThumbs=Object.fromEntries(MINE.filter(m=>m.refThumb).map(m=>[m.id,m.refThumb]));
+    MINE=MINE.filter(m=>m.pending).concat(theirs.map(t=>keepThumbs[t.id]?{...t,refThumb:keepThumbs[t.id]}:t));saveMine();
+  }catch(e){setOnline(true,"Connected, but the library didn't load: "+why(e))}
+  // 2. push looks made offline
+  for(const m of MINE.filter(m=>m.pending)){
+    try{const r=await api("POST","/looks",lookBody(m),45000);Object.assign(m,fromServer(r.look),{pending:false});delete m.refFull;toast("Jarvis added #"+m.code+" "+m.name)}catch(e){break}
+  }
+  saveMine();rebuildCustom();
+  // 3. stars and picks: newest side wins
+  try{const st=await api("GET","/state");
+    if((st.updatedAt||0)>stateAt){favs=new Set(st.favs||[]);store.set("ll-favs",[...favs]);picked=new Set((st.picked||[]).slice(0,3));store.set("ll-picked",[...picked]);stateAt=st.updatedAt;store.set("ll-state-at",stateAt);
+      cards.forEach(c=>c.el.querySelector(".fav").setAttribute("aria-pressed",favs.has(c.p.id)));applyFilter();buildPicklist();buildOrder()}
+    else if(stateAt>(st.updatedAt||0))await pushState();
+  }catch(e){}
+  setOnline(true);$("srv-status").textContent="Synced "+new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})+".";
+  if(!$("view-relight").hidden)loadJobs();
+}
+async function pushState(){if(!ONLINE)return;try{await api("PUT","/state",{favs:[...favs],picked:[...picked],updatedAt:stateAt})}catch(e){setOnline(false,"Offline: "+why(e))}}
+const fromServer=l=>({id:String(l.id),code:String(l.code),name:l.name,feel:l.feel||"",use:l.use||"",family:l.family,q:l.q,dir:l.dir,ratio:l.ratio,col:l.col,mot:l.mot,light:l.light,r:l.r||null,refUrl:l.ref_url||null});
+const lookBody=m=>({look:{name:m.name,feel:m.feel,use:m.use,family:m.family,q:m.q,dir:m.dir,ratio:m.ratio,col:m.col,mot:m.mot,light:m.light,r:m.r},ref:m.refFull||m.refThumb||null,client_id:m.id});
+async function deleteLook(p){
+  const m=MINE.find(x=>x.id===p.id);if(!m)return;
+  if(!m.pending){if(!ONLINE){toast("Connect Jarvis to delete a look he already has");return}
+    try{await api("DELETE","/looks/"+encodeURIComponent(m.id))}catch(e){toast("Couldn't delete: "+why(e));return}}
+  MINE=MINE.filter(x=>x!==m);saveMine();rebuildCustom();closeSheet();toast("Deleted")}
+
+/* ---------- sync dialog ---------- */
+const syncScrim=$("sync-scrim");
+$("sync-btn").onclick=()=>{$("srv-url").value=SRV?SRV.url:"";$("srv-key").value=SRV?SRV.key:"";syncScrim.hidden=false;$("srv-url").focus()};
+$("sync-close").onclick=()=>syncScrim.hidden=true;
+syncScrim.addEventListener("click",e=>{if(e.target===syncScrim)syncScrim.hidden=true});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!syncScrim.hidden)syncScrim.hidden=true});
+$("srv-connect").onclick=async()=>{
+  const url=$("srv-url").value.trim(),key=$("srv-key").value.trim();
+  if(!/^https:\/\/[^\s/]+/.test(url)&&!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(url)){$("srv-status").textContent="Use the https:// address. A GitHub Pages site can't call a plain http:// server.";return}
+  if(!key){$("srv-status").textContent="Paste the access key from Jarvis.";return}
+  SRV={url,key};store.set("ll-server",SRV);$("srv-status").textContent="Connecting…";await connect()};
+$("srv-sync").onclick=async()=>{$("srv-status").textContent="Syncing…";ONLINE?await syncAll():await connect()};
+$("srv-forget").onclick=()=>{SRV=null;try{localStorage.removeItem("ll-server")}catch(e){}FEATS={};setOnline(false,"Disconnected. Your looks stay on this device.")};
+$("exp-json").onclick=()=>{
+  const data={app:"lighting-lab",version:2,exportedAt:new Date().toISOString(),favs:[...favs],picked:[...picked],mine:MINE.map(({refFull,...m})=>m)};
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));
+  a.download="lighting-lab-backup-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+  $("bk-note").textContent="Exported "+favs.size+" stars and "+MINE.length+" own looks."};
+$("imp-file").onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(d.app!=="lighting-lab")throw 0;
+    (d.favs||[]).forEach(id=>favs.add(String(id)));store.set("ll-favs",[...favs]);
+    let added=0;for(const m of (d.mine||[])){if(!m||typeof m.light!=="string"||MINE.some(x=>x.id===m.id))continue;
+      MINE.push({id:String(m.id||"l"+Date.now()+added),code:String(m.code||"new"),pending:m.pending!==false&&!m.code?true:!!m.pending,name:String(m.name||"Untitled look"),feel:String(m.feel||""),use:String(m.use||""),family:m.family,q:m.q,dir:m.dir,ratio:m.ratio,col:m.col,mot:m.mot,light:m.light,r:m.r||null,refThumb:typeof m.refThumb==="string"&&m.refThumb.startsWith("data:image/")?m.refThumb:null,refUrl:m.refUrl||null});added++}
+    saveMine();touchState();rebuildCustom();cards.forEach(c=>c.el.querySelector(".fav").setAttribute("aria-pressed",favs.has(c.p.id)));applyFilter();
+    $("bk-note").textContent="Imported "+(d.favs||[]).length+" stars and "+added+" new looks."+(ONLINE?"":" They send to Jarvis when you connect.");if(ONLINE)syncAll()}
+  catch(err){$("bk-note").textContent="That file isn't a Lighting Lab backup."}e.target.value=""};r.readAsText(f)};
+
+/* ---------- add a look ---------- */
+let refBlob=null,refFull=null,refThumb=null,draftR=null,draftN=0,draftMeta=null,reading=null;
 SHELVES.forEach(([k,l])=>{const o=document.createElement("option");o.value=k;o.textContent=l;$("new-family").appendChild(o)});
 PRESETS.forEach(p=>{const o=document.createElement("option");o.value=p.id;o.textContent="#"+p.code+" "+p.name;$("new-like").appendChild(o)});
 $("new-like").value="lowkey";
@@ -925,14 +1096,14 @@ const NEUTRAL=()=>PRESETS.find(p=>p.id===$("new-like").value).r;
 function draftPreset(){return{id:"draft"+draftN,code:"new",name:$("new-name").value||"New look",r:draftR||NEUTRAL()}}
 function drawDraft(){render($("add-canvas"),draftPreset(),1.3,subject==="photo"?PHOTO:null)}
 $("new-like").onchange=()=>{if(!draftR){draftN++;drawDraft()}};
+function shrink(im,max,q){const s=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext("2d").drawImage(im,0,0,c.width,c.height);return c.toDataURL("image/jpeg",q)}
 function setRef(file){
   if(!file||!/^image\//.test(file.type)){toast("Choose a JPG, PNG or WebP image");return}
   const im=new Image();im.onload=()=>{
-    const s=Math.min(1,1024/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);
-    c.getContext("2d").drawImage(im,0,0,c.width,c.height);
-    c.toBlob(b=>{refBlob=b;const u=URL.createObjectURL(b);$("ref-thumb").src=u;$("ref-thumb").hidden=false;$("ref-empty").hidden=true;
-      $("drop").innerHTML="";const i2=new Image();i2.src=u;i2.alt="Your reference";$("drop").appendChild(i2);$("ref-status").textContent=SAMPLE?"Now tap Read the light.":""},"image/jpeg",.86);
-    URL.revokeObjectURL(im.src)};
+    refFull=shrink(im,1024,.86);refThumb=shrink(im,200,.7);URL.revokeObjectURL(im.src);
+    $("ref-thumb").src=refFull;$("ref-thumb").hidden=false;$("ref-empty").hidden=true;
+    $("drop").innerHTML="";const i2=new Image();i2.src=refFull;i2.alt="Your reference";$("drop").appendChild(i2);
+    $("ref-status").textContent=ONLINE&&FEATS.read?"Now tap Read the light.":""};
   im.src=URL.createObjectURL(file);
 }
 $("ref-file").onchange=e=>setRef(e.target.files&&e.target.files[0]);
@@ -941,137 +1112,107 @@ drop.addEventListener("dragover",e=>{e.preventDefault();drop.classList.add("over
 drop.addEventListener("dragleave",()=>drop.classList.remove("over"));
 drop.addEventListener("drop",e=>{e.preventDefault();drop.classList.remove("over");setRef(e.dataTransfer.files&&e.dataTransfer.files[0])});
 
-const EX=PRESETS.filter(p=>["lowkey","rainwindow","screen"].includes(p.id)).map(p=>"- "+p.light).join("\n");
-const READ_PROMPT=note=>`You are the lighting reader for a musician's relight library. The attached image is a REFERENCE for its LIGHT only. Describe the light so a video model can relight a different shot (a man performing in his own room) the same way.
-
-Write in exactly the style of these existing clauses (lowercase start, physical, from the subject's point of view in frame):
-${EX}
-
-Rules for "light":
-- Describe only light and shadow: quality (hard or soft), direction (say "from past the left/right/top edge of the frame", above, below, behind), contrast ratio like 4:1, colour, and what motivates it (a window, a streetlight, a screen).
-- Say what happens to the background and to lights already in the room.
-- Never name a film, show, director, photographer, actor, artist or brand. Never mention the people, clothes, props or location in the reference.
-- No camera or post words: no LUT, no lens names, no film stock. One paragraph, 45 to 90 words, ending with a full stop.
-${note?`\nThe owner says what he likes about it: "${note.slice(0,400)}". Weight the clause toward that.`:""}
-
-Also fill "r", parameters for a small preview renderer of a lit head in a dark room. Coordinates: d = [x to the frame's right, y up, z toward the camera]; z negative means light from behind. Colours are linear RGB 0–1.
-- bg: [[top r,g,b],[bottom r,g,b]] background wall, 0–0.6 (a dark room is about 0.005–0.03)
-- amb: [r,g,b] ambient fill, 0–0.3 (moody is 0.003–0.02)
-- lights: 1 to 3 of {d:[x,y,z], c:[r,g,b], i: 0.3–2.3 intensity, soft: 0–1, wall: 0–1 how much it lands on the background, pat: optional one of "blinds","window","rain","projector","oil","sweep","shafts","leaves","spot", anim: optional one of "candle","flicker","tv","lightning","projector","drift","sway","strobe","oil","rain","sweep"}
-- haze: optional 0–0.4 with hazeC [r,g,b]
-- grade: {con 0.85–1.25, sat 0.5–1.2, lift 0–0.08, grain 0.02–0.12, vig 0–0.6}
-
-Reply with only this JSON object:
-{"name":"2–4 word name","feel":"one short line of mood","use":"what scenes it suits","family":"noir|grime|dream|projection|horror","q":"quality","dir":"direction","ratio":"e.g. 6:1","col":"colour","mot":"what motivates it","light":"the clause","r":{...}}`;
-
 const num=(v,a,b,d)=>{v=Number(v);return Number.isFinite(v)?clamp(v,a,b):d};
 const rgb=(v,a,b,d)=>Array.isArray(v)&&v.length===3?v.map((x,i)=>num(x,a,b,d[i])):d;
 const PATS=["blinds","window","rain","projector","oil","sweep","shafts","leaves","spot"],ANIMS=["candle","flicker","tv","lightning","projector","drift","sway","strobe","oil","rain","sweep"];
 function cleanR(r){
   r=r&&typeof r==="object"?r:{};
+  if(!Array.isArray(r.lights)||!r.lights.length)return PRESETS.find(p=>p.id==="lowkey").r;
   const bg=Array.isArray(r.bg)&&r.bg.length===2?[rgb(r.bg[0],0,.6,[.012,.012,.014]),rgb(r.bg[1],0,.6,[.004,.004,.005])]:[[.012,.012,.014],[.004,.004,.005]];
-  const lights=(Array.isArray(r.lights)?r.lights:[]).slice(0,3).map(l=>{l=l||{};const o={d:rgb(l.d,-1,1,[-.7,.3,.6]),c:rgb(l.c,0,1,[1,.9,.8]),i:num(l.i,.3,2.3,1.4),soft:num(l.soft,0,1,.5),wall:num(l.wall,0,1,.1)};
+  const lights=r.lights.slice(0,3).map(l=>{l=l||{};const o={d:rgb(l.d,-1,1,[-.7,.3,.6]),c:rgb(l.c,0,1,[1,.9,.8]),i:num(l.i,.3,2.3,1.4),soft:num(l.soft,0,1,.5),wall:num(l.wall,0,1,.1)};
     if(PATS.includes(l.pat))o.pat=l.pat;if(ANIMS.includes(l.anim))o.anim=l.anim;if(Math.hypot(...o.d)<.05)o.d=[0,.2,1];return o});
-  if(!lights.length)lights.push({d:[-.7,.3,.6],c:[1,.9,.8],i:1.4,soft:.5,wall:.1});
   const out={bg,amb:rgb(r.amb,0,.3,[.01,.01,.012]),lights};
   const h=num(r.haze,0,.4,0);if(h>0){out.haze=h;out.hazeC=rgb(r.hazeC,0,.3,[.06,.06,.06])}
   const g=r.grade||{};out.grade={con:num(g.con,.85,1.25,1.08),sat:num(g.sat,.5,1.2,1),lift:num(g.lift,0,.08,0),grain:num(g.grain,.02,.12,.05),vig:num(g.vig,0,.6,.4)};
   return out;
 }
 $("read-light").onclick=async()=>{
-  if(!SAMPLE){toast("Claude isn't available in this view");return}
-  if(!refBlob){toast("Add a reference image first");return}
-  reading?.abort();reading=new AbortController();const st=$("ref-status");st.textContent="Reading the light… (about 20–60 seconds)";$("read-light").disabled=true;
+  if(!ONLINE||!FEATS.read){toast("Connect Jarvis first");return}
+  if(!refFull){toast("Add a reference image first");return}
+  const st=$("ref-status");st.textContent="Jarvis is reading the light… (about 20–60 seconds)";$("read-light").disabled=true;
   try{
-    const j=await SAMPLE.json(READ_PROMPT($("ref-note").value.trim()),{images:[refBlob],signal:reading.signal,modelTier:"default"});
+    const j=await api("POST","/read",{image:refFull,note:$("ref-note").value.trim().slice(0,400)},120000);
     if(!j||typeof j.light!=="string")throw{code:"bad_answer"};
     $("new-name").value=String(j.name||"").slice(0,40);$("new-feel").value=String(j.feel||"").slice(0,120);$("new-light").value=j.light.trim();
     if(SHELVES.some(s=>s[0]===j.family))$("new-family").value=j.family;
-    window._draftMeta={use:String(j.use||"").slice(0,160),q:String(j.q||"").slice(0,60),dir:String(j.dir||"").slice(0,90),ratio:String(j.ratio||"").slice(0,40),col:String(j.col||"").slice(0,80),mot:String(j.mot||"").slice(0,90)};
-    draftR=cleanR(j.r);draftN++;drawDraft();$("like-wrap").hidden=true;
+    draftMeta={use:String(j.use||"").slice(0,160),q:String(j.q||"").slice(0,60),dir:String(j.dir||"").slice(0,90),ratio:String(j.ratio||"").slice(0,40),col:String(j.col||"").slice(0,80),mot:String(j.mot||"").slice(0,90)};
+    draftR=j.r?cleanR(j.r):null;draftN++;drawDraft();$("like-wrap").hidden=!!draftR;
     st.textContent="Done. Edit anything, then save.";
-  }catch(e){
-    st.textContent=e.code==="cancelled"?"":e.code==="not_granted"?"Claude wasn't allowed for this page. You can write the clause yourself.":e.code==="rate_limited"?"Too many reads just now. Try again in a minute.":"Couldn't read that one ("+(e.code||"error")+"). Try again or write it yourself.";
-  }finally{$("read-light").disabled=false}
+  }catch(e){st.textContent="Couldn't read that one: "+why(e)+". Try again or write it yourself."}
+  finally{$("read-light").disabled=false}
 };
 function draftLook(){
-  const m=window._draftMeta||{};
+  const m=draftMeta||{};
   return{name:$("new-name").value.trim()||"Untitled look",feel:$("new-feel").value.trim(),family:$("new-family").value,light:$("new-light").value.trim(),
     use:m.use||"",q:m.q||"",dir:m.dir||"",ratio:m.ratio||"",col:m.col||"",mot:m.mot||"",r:draftR||NEUTRAL()};
 }
-function jarvisBlock(l,code){return `ADD THIS LOOK to my LIGHTING-PRESETS.md as #${code}, then render a Nano Banana test still of it on my master photo.
+function jarvisBlock(l,code){return `ADD THIS LOOK to my LIGHTING-PRESETS.md and presets.json as the next M code${code?" ("+code+")":""}, then render a Nano Banana test still of it on my master photo.
 
-### ${code} · ${l.name.toUpperCase()}
+### ${l.name.toUpperCase()}
 Feel: ${l.feel||"-"}
 Use it for: ${l.use||"-"}
+Shelf: ${l.family}
 Quality: ${l.q||"-"} · Direction: ${l.dir||"-"} · Ratio: ${l.ratio||"-"} · Colour: ${l.col||"-"} · Motivated by: ${l.mot||"-"}
 @your_light: ${l.light}`}
-$("copy-jarvis").onclick=()=>{const l=draftLook();if(!l.light){toast("Write or read the clause first");return}copy(jarvisBlock(l,"M"+(CUSTOM.length+1)),$("new-light"),"Copied for Jarvis")};
+$("copy-jarvis").onclick=()=>{const l=draftLook();if(!l.light){toast("Write or read the clause first");return}copy(jarvisBlock(l),$("new-light"),"Copied for Jarvis")};
+function resetDraft(){draftR=null;draftMeta=null;refFull=refThumb=null;["new-name","new-feel","new-light","ref-note"].forEach(i=>$(i).value="");
+  $("ref-thumb").hidden=true;$("ref-empty").hidden=false;$("drop").innerHTML='<span>Tap to choose an image, or drop it here</span>';$("like-wrap").hidden=false;$("ref-status").textContent="";draftN++;drawDraft()}
 $("save-look").onclick=async()=>{
   const l=draftLook();if(!l.light){toast("Write or read the clause first");return}
-  if(!DB||!CAN_EDIT){toast("Saving works when you open this page in Claude. Copy for Jarvis instead.");return}
-  const b=$("save-look");b.disabled=true;$("save-note").textContent="Saving…";
-  try{
-    let refAsset=null;if(refBlob&&ASSETS){try{refAsset=(await ASSETS.upload(refBlob)).id}catch(e){}}
-    await DB.collection("looks").doc().set({...l,refAsset,createdAt:Date.now()});
-    $("save-note").textContent="Saved. It's on the Looks tab under My looks.";
-    draftR=null;window._draftMeta=null;refBlob=null;["new-name","new-feel","new-light","ref-note"].forEach(i=>$(i).value="");
-    $("ref-thumb").hidden=true;$("ref-empty").hidden=false;$("drop").innerHTML='<span>Tap to choose an image, or drop it here</span>';$("like-wrap").hidden=false;$("ref-status").textContent="";draftN++;drawDraft();
-  }catch(e){$("save-note").textContent="Couldn't save ("+(e.code||"error")+")."}finally{b.disabled=false}
+  const m={...l,id:"local-"+Date.now().toString(36),code:"new",pending:true,refThumb,refFull};
+  const b=$("save-look");b.disabled=true;
+  if(ONLINE){
+    $("save-note").textContent="Sending to Jarvis…";
+    try{const r=await api("POST","/looks",lookBody(m),45000);const saved={...fromServer(r.look),refThumb,pending:false};MINE.push(saved);saveMine();rebuildCustom();
+      $("save-note").innerHTML="";$("save-note").textContent="Jarvis added #"+saved.code+" "+saved.name+" to presets.json"+(r.sample_job?" and is rendering its test still.":".");resetDraft();b.disabled=false;return}
+    catch(e){$("save-note").textContent="Jarvis didn't accept it ("+why(e)+"). Saved on this device; it sends on the next sync."}
+  }else $("save-note").textContent="Saved on this device only, not in Jarvis yet. Connect Jarvis or tap Copy for Jarvis.";
+  MINE.push(m);saveMine();rebuildCustom();resetDraft();b.disabled=false;
 };
 
-async function boot(){
-  if(!window.claude||typeof claude.use!=="function"){$("ai-off").hidden=false;$("save-note").textContent="Saving needs this page open in Claude. Copy for Jarvis works anywhere.";return}
-  const [db,user,sample,assets]=await Promise.all(["db","user","sample","assets"].map(n=>claude.use(n).catch(()=>null)));
-  DB=db;ASSETS=assets;CAN_EDIT=user?await user.canEdit().catch(()=>false):!!db;
-  if(sample){try{const lim=await sample.limits();if(lim&&lim.images)SAMPLE=sample}catch(e){}}
-  $("ai-off").hidden=!!SAMPLE;$("read-light").disabled=!SAMPLE;
-  if(!DB){$("save-note").textContent="Saving isn't available in this view. Copy for Jarvis works anywhere.";return}
-  if(!CAN_EDIT){$("save-note").textContent="Only the page owner can save looks.";}
-  const timer=setTimeout(()=>{if(!CUSTOM.length&&filter==="mine")document.getElementById("empty").textContent="Your looks are taking a while to load."},10000);
-  DB.collection("looks").orderBy("createdAt").onSnapshot(snap=>{clearTimeout(timer);
-    CUSTOM=snap.docs.map((d,i)=>{const v=d.data()||{};return{docId:d.id,id:"m_"+d.id,code:"M"+(i+1),tag:"mine",name:String(v.name||"Untitled look"),feel:String(v.feel||""),use:String(v.use||"Your own reference."),
-      family:SHELVES.some(s=>s[0]===v.family)?v.family:"noir",q:String(v.q||"-"),dir:String(v.dir||"-"),ratio:String(v.ratio||"-"),col:String(v.col||"-"),mot:String(v.mot||"-"),light:String(v.light||""),r:cleanR(v.r),refAsset:typeof v.refAsset==="string"&&/^[0-9a-f]{32}$/.test(v.refAsset)?v.refAsset:null}});
-    renderCustomCards();
-  },e=>{clearTimeout(timer);$("save-note").textContent="Couldn't load your looks ("+(e.code||"error")+")."});
+/* ---------- jobs ---------- */
+let JOBS=[],jobTimer=null;
+const ST={awaiting_go:"Waiting for your go",queued:"Queued",rendering:"Rendering",done:"Done",failed:"Failed",cancelled:"Cancelled"};
+$("send-job").onclick=async()=>{
+  const looks=ALL().filter(p=>picked.has(p.id));if(!looks.length){toast("Pick at least one look");return}
+  if(looks.some(p=>p.pending)){toast("One of these looks isn't in Jarvis yet. Sync first.");return}
+  const res=document.querySelector('input[name="res"]:checked').value;
+  $("send-job").disabled=true;$("job-status").textContent="Sending…";
+  try{const r=await api("POST","/jobs",{type:"relight",clip:$("clip").value.trim(),section:$("section").value.trim(),notes:$("notes").value.trim(),res,
+      looks:looks.map(p=>({code:p.code,id:p.id,name:p.name,light:p.light})),order:$("order").textContent});
+    $("job-status").textContent="Jarvis got it: job "+r.job.id+". "+(r.job.estimate?"Estimate $"+Number(r.job.estimate).toFixed(2)+". ":"")+"He waits for your go.";loadJobs()}
+  catch(e){$("job-status").textContent="Not sent: "+why(e)+". Copy the order into Telegram instead."}
+  finally{$("send-job").disabled=false}
+};
+async function loadJobs(){
+  clearTimeout(jobTimer);if(!ONLINE||!FEATS.jobs)return;
+  try{const r=await api("GET","/jobs?limit=8");JOBS=Array.isArray(r.jobs)?r.jobs:[];drawJobs()}catch(e){}
+  if(JOBS.some(j=>["awaiting_go","queued","rendering"].includes(j.status))&&!$("view-relight").hidden)jobTimer=setTimeout(loadJobs,10000);
 }
-applyFilter();buildPicklist();buildOrder();route();boot();
+function drawJobs(){
+  const box=$("jobs");box.innerHTML="";
+  if(!JOBS.length){box.innerHTML='<p class="note">No jobs yet.</p>';return}
+  for(const j of JOBS){const el=document.createElement("div");el.className="job";
+    const looks=(j.looks||[]).map(l=>"#"+l.code+" "+l.name).join(", ");
+    el.innerHTML=`<div class="top"><strong>${esc(j.id)}</strong><span class="st st-${esc(j.status)}">${esc(ST[j.status]||j.status)}</span></div>
+      <div class="note">${esc(j.clip||"")} · ${esc(looks)}${j.estimate?" · ≈ $"+Number(j.estimate).toFixed(2):""}</div>${j.message?`<div class="note">${esc(j.message)}</div>`:""}`;
+    if(j.status==="awaiting_go"){const row=document.createElement("div");row.className="row";const go=document.createElement("button");go.className="btn primary";go.textContent="Go"+(j.estimate?" · $"+Number(j.estimate).toFixed(2):"");
+      go.onclick=async()=>{if(go.dataset.arm!=="1"){go.dataset.arm="1";go.textContent="Tap again to spend"+(j.estimate?" $"+Number(j.estimate).toFixed(2):"");return}
+        go.disabled=true;try{await api("POST","/jobs/"+encodeURIComponent(j.id)+"/go",{confirm:true});toast("Go sent");loadJobs()}catch(e){toast("Go failed: "+why(e));go.disabled=false}};
+      row.appendChild(go);el.appendChild(row)}
+    const vids=(j.results||[]).filter(x=>x&&/^https:\/\//.test(x.url||""));
+    if(vids.length){const g=document.createElement("div");g.className="res";
+      for(const v of vids){const f=document.createElement("figure");f.style.margin="0";const vd=document.createElement("video");vd.controls=true;vd.playsInline=true;vd.preload="metadata";vd.src=v.url;if(/^https:\/\//.test(v.thumb||""))vd.poster=v.thumb;
+        const cap=document.createElement("figcaption");cap.textContent=v.label||(v.code?"#"+v.code:"result");f.append(vd,cap);g.appendChild(f)}
+      el.appendChild(g)}
+    box.appendChild(el)}
+}
+$("jobs-refresh").onclick=loadJobs;
+window.addEventListener("hashchange",()=>{if(location.hash==="#relight")loadJobs()});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&SRV)ONLINE?syncAll():connect()});
+
+rebuildCustom();setOnline(false);applyFilter();buildPicklist();buildOrder();route();connect();
 </script>
 
-<script>
-/* ---- Jarvis sync: durable favourites ---- */
-(function(){
-  const KEY="ll-favs", PKEY="ll-picked";
-  function get(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
-  function set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
-  fetch("favourites.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{
-    if(!d)return;
-    const f=get(KEY), p=get(PKEY);
-    if(!f && Array.isArray(d.favs) && d.favs.length){set(KEY,d.favs);location.reload()}
-    else if(!p && Array.isArray(d.picked) && d.picked.length){set(PKEY,d.picked)}
-  }).catch(()=>{});
-  const bar=document.createElement("div");
-  bar.style.cssText="position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);display:flex;gap:6px;z-index:50";
-  function mk(t,fn){const b=document.createElement("button");b.textContent=t;
-    b.style.cssText="font:600 12px -apple-system,sans-serif;padding:9px 13px;border-radius:999px;background:#e8a145;color:#1b1206;border:0;box-shadow:0 4px 14px rgba(0,0,0,.5)";
-    b.onclick=fn;bar.appendChild(b);return b}
-  mk("Copy my favourites",()=>{
-    const out={favs:[...(get(KEY)||[])],picked:[...(get(PKEY)||[])],updated:new Date().toISOString()};
-    const s=JSON.stringify(out);
-    navigator.clipboard.writeText(s).then(()=>alert("Copied. Paste it to Jarvis in Telegram."),
-      ()=>prompt("Copy this and send it to Jarvis:",s));
-  });
-  mk("Paste favourites",()=>{
-    const raw=prompt("Paste the favourites JSON Jarvis gave you:");
-    if(!raw)return;
-    try{const d=JSON.parse(raw);
-      if(Array.isArray(d.favs))set(KEY,d.favs);
-      if(Array.isArray(d.picked))set(PKEY,d.picked);
-      location.reload();
-    }catch(e){alert("That does not look like favourites JSON.")}
-  });
-  document.body.appendChild(bar);
-})();
-</script>
-
-</body></html>
+</body>
+</html>
