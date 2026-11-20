@@ -1038,4 +1038,40 @@ async function boot(){
 applyFilter();buildPicklist();buildOrder();route();boot();
 </script>
 
+<script>
+/* ---- Jarvis sync: durable favourites ---- */
+(function(){
+  const KEY="ll-favs", PKEY="ll-picked";
+  function get(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
+  function set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+  fetch("favourites.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{
+    if(!d)return;
+    const f=get(KEY), p=get(PKEY);
+    if(!f && Array.isArray(d.favs) && d.favs.length){set(KEY,d.favs);location.reload()}
+    else if(!p && Array.isArray(d.picked) && d.picked.length){set(PKEY,d.picked)}
+  }).catch(()=>{});
+  const bar=document.createElement("div");
+  bar.style.cssText="position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);display:flex;gap:6px;z-index:50";
+  function mk(t,fn){const b=document.createElement("button");b.textContent=t;
+    b.style.cssText="font:600 12px -apple-system,sans-serif;padding:9px 13px;border-radius:999px;background:#e8a145;color:#1b1206;border:0;box-shadow:0 4px 14px rgba(0,0,0,.5)";
+    b.onclick=fn;bar.appendChild(b);return b}
+  mk("Copy my favourites",()=>{
+    const out={favs:[...(get(KEY)||[])],picked:[...(get(PKEY)||[])],updated:new Date().toISOString()};
+    const s=JSON.stringify(out);
+    navigator.clipboard.writeText(s).then(()=>alert("Copied. Paste it to Jarvis in Telegram."),
+      ()=>prompt("Copy this and send it to Jarvis:",s));
+  });
+  mk("Paste favourites",()=>{
+    const raw=prompt("Paste the favourites JSON Jarvis gave you:");
+    if(!raw)return;
+    try{const d=JSON.parse(raw);
+      if(Array.isArray(d.favs))set(KEY,d.favs);
+      if(Array.isArray(d.picked))set(PKEY,d.picked);
+      location.reload();
+    }catch(e){alert("That does not look like favourites JSON.")}
+  });
+  document.body.appendChild(bar);
+})();
+</script>
+
 </body></html>
